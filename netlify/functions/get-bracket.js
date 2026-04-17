@@ -141,20 +141,25 @@ export default async function handler(req, context) {
     let apiError = null;
 
     try {
+      console.log("Próba pobrania danych z NBA API...");
       const nbaRes = await fetch(
-        "https://cdn.nba.com/static/json/liveData/playoff/playoffBracket_1026.json",
+        "https://cdn.nba.com/static/json/liveData/playoff/playoffBracket_2025.json",
         {
           headers: {
             "Accept": "application/json",
             "Origin": "https://www.nba.com",
             "Referer": "https://www.nba.com/",
           },
-          signal: AbortSignal.timeout(8000)
+          signal: AbortSignal.timeout(15000) // Zwiększony timeout do 15 sekund
         }
       );
 
-      if (!nbaRes.ok) throw new Error(`NBA API odpowiedział: ${nbaRes.status}`);
+      if (!nbaRes.ok) {
+        console.error(`NBA API błąd HTTP: ${nbaRes.status}`);
+        throw new Error(`NBA API odpowiedział: ${nbaRes.status}`);
+      }
       const nbaData = await nbaRes.json();
+      console.log("NBA API odpowiedź sukcesem, dane:", nbaData);
 
       // Mapuj dane NBA na naszą strukturę
       const playoffBracket = nbaData?.bracket?.playoffBracket ?? nbaData?.playoffBracket;
