@@ -198,10 +198,9 @@ export default async function handler(req, context) {
       console.error("Błąd pobierania NBA API:", err.message);
     }
 
-    // Użyj fallback jeśli API nie odpowiedziało
-    if (!bracketData) {
-      bracketData = { ...FALLBACK_BRACKET, source: "fallback", apiError };
-    }
+    // Używamy tylko hardkodowane dane - pomijamy próby połączenia z NBA API
+    // NBA API blokuje dostęp z Netlify, więc używamy fallback
+    bracketData = { ...FALLBACK_BRACKET, source: "fallback", apiError: "NBA API Access Denied - używamy dane lokalne" };
 
     // Zapisz do cache
     if (store) {
