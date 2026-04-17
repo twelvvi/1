@@ -1,0 +1,225 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@300;400;500;600;700;800&display=swap');
+
+:root {
+  --nba-navy: #0a0e1a;
+  --nba-dark: #0f1525;
+  --nba-card: #151c30;
+  --nba-border: #1e2a45;
+  --nba-gold: #c8a84b;
+  --nba-gold-light: #f0c040;
+  --nba-blue: #1d428a;
+  --nba-red: #c8102e;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--nba-navy);
+  color: #e2e8f0;
+  font-family: 'Barlow', system-ui, sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--nba-dark);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--nba-border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--nba-gold);
+}
+
+/* Tło z siatką */
+.grid-bg {
+  background-image:
+    linear-gradient(rgba(29, 66, 138, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(29, 66, 138, 0.05) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* Złoty gradient tekstu */
+.text-gold-gradient {
+  background: linear-gradient(135deg, var(--nba-gold) 0%, var(--nba-gold-light) 50%, var(--nba-gold) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Karta serii */
+.series-card {
+  background: var(--nba-card);
+  border: 1px solid var(--nba-border);
+  border-radius: 12px;
+  transition: all 0.3s ease;
+}
+
+.series-card:hover {
+  border-color: rgba(200, 168, 75, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+}
+
+/* Status serii */
+.status-scheduled {
+  background: rgba(100, 116, 139, 0.15);
+  border-color: rgba(100, 116, 139, 0.3);
+}
+
+.status-in-progress {
+  animation: pulseBlue 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  border-color: rgba(29, 66, 138, 0.6) !important;
+}
+
+.status-completed {
+  background: rgba(15, 21, 37, 0.8);
+  opacity: 0.85;
+}
+
+@keyframes pulseBlue {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(29, 66, 138, 0.6); }
+  50% { box-shadow: 0 0 0 8px rgba(29, 66, 138, 0); }
+}
+
+/* Picker przycisk drużyny */
+.team-pick-btn {
+  transition: all 0.2s ease;
+  border: 2px solid transparent;
+}
+
+.team-pick-btn:hover {
+  border-color: var(--nba-gold);
+  background: rgba(200, 168, 75, 0.1);
+}
+
+.team-pick-btn.selected {
+  border-color: var(--nba-gold);
+  background: rgba(200, 168, 75, 0.15);
+  box-shadow: 0 0 20px rgba(200, 168, 75, 0.2);
+}
+
+/* Przycisk wyniku */
+.score-btn {
+  transition: all 0.15s ease;
+  font-family: 'Bebas Neue', sans-serif;
+  letter-spacing: 0.05em;
+}
+
+.score-btn:hover {
+  background: rgba(200, 168, 75, 0.2);
+  color: var(--nba-gold-light);
+}
+
+.score-btn.selected {
+  background: var(--nba-gold);
+  color: #0a0e1a;
+}
+
+/* Feedback typów */
+.pick-perfect {
+  border-color: #22c55e !important;
+  background: rgba(34, 197, 94, 0.08) !important;
+}
+
+.pick-correct {
+  border-color: #f59e0b !important;
+  background: rgba(245, 158, 11, 0.08) !important;
+}
+
+.pick-wrong {
+  border-color: #ef4444 !important;
+  background: rgba(239, 68, 68, 0.08) !important;
+}
+
+/* Loading skeleton */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(30, 42, 69, 0.8) 25%,
+    rgba(40, 55, 90, 0.9) 50%,
+    rgba(30, 42, 69, 0.8) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* Connector linii w bracketcie */
+.bracket-connector {
+  position: relative;
+}
+
+.bracket-connector::after {
+  content: '';
+  position: absolute;
+  right: -20px;
+  top: 50%;
+  width: 20px;
+  height: 2px;
+  background: var(--nba-border);
+}
+
+/* Bracket layout */
+.bracket-container {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Animacje */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.5s ease forwards;
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.3s ease forwards;
+}
+
+/* Glitch effect dla tytułu */
+.glitch-text {
+  position: relative;
+}
+
+/* Gradient border */
+.gradient-border {
+  background: linear-gradient(var(--nba-card), var(--nba-card)) padding-box,
+              linear-gradient(135deg, var(--nba-gold), var(--nba-blue)) border-box;
+  border: 1px solid transparent;
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .bracket-container {
+    padding: 0 8px;
+  }
+}
