@@ -19,8 +19,8 @@ function useAppData() {
   const fetchData = useCallback(async () => {
     try {
       const [bracketRes, scoresRes] = await Promise.all([
-        fetch('/.netlify/functions/get-bracket'),
-        fetch('/.netlify/functions/get-scores')
+        fetch('/api/get-bracket'),
+        fetch('/api/get-scores')
       ])
 
       if (bracketRes.ok) {

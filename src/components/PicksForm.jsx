@@ -124,10 +124,10 @@ export default function PicksForm({ player }) {
     setLoading(true)
     try {
       const [bracketRes, myPicksRes, otherPicksRes] = await Promise.all([
-        fetch('/.netlify/functions/get-bracket'),
-        fetch(`/.netlify/functions/get-picks?player=${player.id}`),
+        fetch('/api/get-bracket'),
+        fetch(`/api/get-picks?player=${player.id}`),
         otherPlayer ? fetch(
-          `/.netlify/functions/get-picks?player=${otherPlayer.id}&viewAs=${player.id}&round=${activeRound}`
+          `/api/get-picks?player=${otherPlayer.id}&viewAs=${player.id}&round=${activeRound}`
         ) : Promise.resolve(null)
       ])
 
@@ -223,7 +223,7 @@ export default function PicksForm({ player }) {
     setSaveMessage(null)
 
     try {
-      const res = await fetch('/.netlify/functions/save-picks', {
+      const res = await fetch('/api/save-picks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ player: player.id, round: activeRound, picks })
