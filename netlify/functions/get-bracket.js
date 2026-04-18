@@ -22,14 +22,9 @@ const TEAM_NAMES = {
 const EAST_TEAMS = ["ATL", "BOS", "BKN", "CHA", "CHI", "CLE", "DET", "IND", "MIA", "MIL", "NYK", "ORL", "PHI", "TOR", "WAS"];
 const WEST_TEAMS = ["DAL", "DEN", "GSW", "HOU", "LAC", "LAL", "MEM", "MIN", "NOP", "OKC", "PHX", "POR", "SAC", "SAS", "UTA"];
 
-// ✅ ZAKTUALIZOWANO: Wszystkie 8 drużyn z każdej konferencji
 const TEAM_SEEDS_2025_26 = {
-  // East (1-8)
-  DET: 1, BOS: 2, NYK: 3, CLE: 4,
-  IND: 5, MIL: 6, ORL: 7, PHI: 8,
-  // West (1-8)
-  OKC: 1, SAS: 2, DEN: 3, LAL: 4,
-  MIN: 5, PHX: 6, MEM: 7, POR: 8
+  DET: 1, BOS: 2, NYK: 3, CLE: 4, IND: 5, MIL: 6, ORL: 7, PHI: 8,
+  OKC: 1, SAS: 2, DEN: 3, LAL: 4, MIN: 5, PHX: 6, MEM: 7, POR: 8
 };
 
 const FALLBACK_BRACKET = {
@@ -90,15 +85,14 @@ async function fetchScoreboardByDate(dateStr) {
       return null;
     }
     const data = await res.json();
-    console.log(`✅ HTTP 200 for ${dateStr} - Events found: ${data?.events?.length || 0}`);
+    console.log(`✅ HTTP 200 for ${dateStr} - Events: ${data?.events?.length || 0}`);
     return data;
   } catch (err) {
-    console.warn(`❌ Error fetching ${dateStr}: ${err.message}`);
+    console.warn(`❌ Error: ${err.message}`);
     return null;
   }
 }
 
-// ✅ ULEPSZONE: Lepsze rozpoznawanie First Round
 function parseScoreboardEvent(event) {
   if (!event?.competitions?.[0]) return null;
   
@@ -125,9 +119,8 @@ function parseScoreboardEvent(event) {
   const shortName = (event.shortName || "").toLowerCase();
   const notes = (event.notes?.[0]?.text || "").toLowerCase();
   
-  console.log(`[ESPN] Parsing: "${event.name}"`);
+  console.log(`[ESPN] "${event.name}"`);
 
-  // ✅ ULEPSZONE: Więcej wariantów dla First Round
   if (name.includes("play-in") || shortName.includes("play-in") || notes.includes("play-in")) {
     isPlayIn = true;
     roundName = "Play-In";
@@ -143,7 +136,6 @@ function parseScoreboardEvent(event) {
     roundName = "NBA Finals";
     conference = "finals";
   } else if (name.includes("first round") || name.includes("round 1") || shortName.includes("r1") || shortName.includes("1st")) {
-    // ✅ NOWE: Explicit first round detection
     round = 1;
     roundName = "First Round";
   }
@@ -189,13 +181,11 @@ function parseScoreboardEvent(event) {
   const seed1 = getSeed(team1, t1Abbr);
   const seed2 = getSeed(team2, t2Abbr);
 
-  // ✅ ULEPSZONE: Better debugging info
   if (seed1 === 0 || seed2 === 0) {
-    console.log(`  ⚠️ Missing seed for ${t1Abbr}(${seed1}) vs ${t2Abbr}(${seed2})`);
-    console.log(`     name="${name}", shortName="${shortName}"`);
+    console.log(`  ⚠️ Missing seed: ${t1Abbr}(${seed1}) vs ${t2Abbr}(${seed2})`);
   }
 
-  console.log(`  ✅ Teams: ${t1Abbr}(${seed1}) vs ${t2Abbr}(${seed2}), Round=${round}, PlayIn=${isPlayIn}`);
+  console.log(`  ✅ ${t1Abbr}(${seed1}) vs ${t2Abbr}(${seed2}) R${round}`);
 
   return {
     eventId: event.id,
@@ -306,14 +296,15 @@ export default async function handler(req, context) {
         }
       }
     } catch (blobErr) {
-      console.warn("Cache read error:", blobErr.message);
+      console.warn("Cache error:", blobErr.message);
     }
 
-    const playoffStart = new Date("2026-04-19");
+    // ✅ ZMIENIONE: playoffStart na 2026-04-18 (dzisiaj)
+    const playoffStart = new Date("2026-04-18");
     const today = new Date();
     const endDate = addDays(today, 1);
 
-    console.log(`\n🏀 NBA Bracket Fetcher - Starting scan from ${formatDate(playoffStart)} to ${formatDate(endDate)}`);
+    console.log(`\n🏀 Bracket scan: ${formatDate(playoffStart)} to ${formatDate(endDate)}\n`);
 
     const allGames = [];
     const seenEventIds = new Set();
@@ -323,7 +314,7 @@ export default async function handler(req, context) {
       const data = await fetchScoreboardByDate(dateStr);
       
       if (data?.events) {
-        console.log(`📊 Processing ${data.events.length} events for ${dateStr}`);
+        console.log(`📊 Processing ${data.events.length} events`);
         for (const event of data.events) {
           if (seenEventIds.has(event.id)) continue;
           seenEventIds.add(event.id);
@@ -336,19 +327,18 @@ export default async function handler(req, context) {
       }
     }
 
-    console.log(`\n📈 Total unique games found: ${allGames.length}`);
+    console.log(`\n📈 Total games: ${allGames.length}\n`);
 
     const series = buildSeries(allGames);
-    console.log(`🔄 Series built: ${series.length} playoff series\n`);
 
     series.forEach(s => {
-      console.log(`  ${s.team1.abbr}(${s.team1.seed}) vs ${s.team2.abbr}(${s.team2.seed}) - R${s.round}: ${s.wins1}-${s.wins2} (${s.status})`);
+      console.log(`  ${s.team1.abbr}(${s.team1.seed}) vs ${s.team2.abbr}(${s.team2.seed}) R${s.round}: ${s.wins1}-${s.wins2}`);
     });
 
     let bracketData;
     
     if (allGames.length > 0) {
-      console.log(`\n✅ ESPN data available - Building from API`);
+      console.log(`\n✅ ESPN data found\n`);
       
       bracketData = {
         season: "2025-26",
@@ -362,8 +352,6 @@ export default async function handler(req, context) {
       const round1Games = allGames.filter(g => g.round === 1 && !g.isPlayIn);
       const eastGames = round1Games.filter(g => g.conference === "east" || EAST_TEAMS.includes(g.team1.abbr));
       const westGames = round1Games.filter(g => g.conference === "west" || WEST_TEAMS.includes(g.team1.abbr));
-      
-      console.log(`Round 1 East: ${eastGames.length} games, West: ${westGames.length} games`);
 
       const eastSeriesMap = new Map();
       for (const game of eastGames) {
@@ -386,9 +374,6 @@ export default async function handler(req, context) {
           bracketData.rounds[1].east[i].team1 = shouldSwap ? game.team2 : game.team1;
           bracketData.rounds[1].east[i].team2 = shouldSwap ? game.team1 : game.team2;
           bracketData.rounds[1].east[i].status = game.status;
-          console.log(`  ✅ East slot ${i}: ${bracketData.rounds[1].east[i].team1.abbr}(${bracketData.rounds[1].east[i].team1.seed}) vs ${bracketData.rounds[1].east[i].team2.abbr}(${bracketData.rounds[1].east[i].team2.seed})`);
-        } else {
-          console.log(`  ⚠️ East slot ${i} (seeds ${seedKey}): NO MATCH`);
         }
       }
 
@@ -411,12 +396,9 @@ export default async function handler(req, context) {
         if (game && bracketData.rounds[1].west[i]) {
           const shouldSwap = game.team1.seed > game.team2.seed;
           bracketData.rounds[1].west[i].team1 = shouldSwap ? game.team2 : game.team1;
-          // ✅ FIXED LINE 475: game.game1 → game.team1
+          // ✅ NAPRAWIONO: game.game1 → game.team1
           bracketData.rounds[1].west[i].team2 = shouldSwap ? game.team1 : game.team2;
           bracketData.rounds[1].west[i].status = game.status;
-          console.log(`  ✅ West slot ${i}: ${bracketData.rounds[1].west[i].team1.abbr}(${bracketData.rounds[1].west[i].team1.seed}) vs ${bracketData.rounds[1].west[i].team2.abbr}(${bracketData.rounds[1].west[i].team2.seed})`);
-        } else {
-          console.log(`  ⚠️ West slot ${i} (seeds ${seedKey}): NO MATCH`);
         }
       }
 
@@ -465,7 +447,7 @@ export default async function handler(req, context) {
         }
       }
     } else {
-      console.log(`\n❌ No games from ESPN - Using fallback bracket`);
+      console.log(`\n❌ No ESPN data - using fallback\n`);
       bracketData = {
         ...FALLBACK_BRACKET,
         source: "fallback",
@@ -486,7 +468,7 @@ export default async function handler(req, context) {
     return new Response(JSON.stringify(bracketData), { status: 200, headers });
 
   } catch (err) {
-    console.error("❌ CRITICAL ERROR:", err);
+    console.error("❌ ERROR:", err);
     return new Response(
       JSON.stringify({ 
         ...FALLBACK_BRACKET, 
