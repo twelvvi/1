@@ -22,15 +22,16 @@ const TEAM_NAMES = {
 const EAST_TEAMS = ["ATL", "BOS", "BKN", "CHA", "CHI", "CLE", "DET", "IND", "MIA", "MIL", "NYK", "ORL", "PHI", "TOR", "WAS"];
 const WEST_TEAMS = ["DAL", "DEN", "GSW", "HOU", "LAC", "LAL", "MEM", "MIN", "NOP", "OKC", "PHX", "POR", "SAC", "SAS", "UTA"];
 
-// Hardcoded seeds dla sezonu 2025-26 (z fallback bracket)
+// Hardcoded seeds dla sezonu 2025-26 (po play-in, oficjalny bracket NBA)
 const TEAM_SEEDS_2025_26 = {
-  // East
+  // East - top 4
   DET: 1, BOS: 2, NYK: 3, CLE: 4,
-  // West
+  // East - play-in winners: TOR(5), ATL(6), PHI(7), ORL(8)
+  TOR: 5, ATL: 6, PHI: 7, ORL: 8,
+  // West - top 4
   OKC: 1, SAS: 2, DEN: 3, LAL: 4,
-  // Play-in teams (przybliżone, do aktualizacji po zakończeniu play-in)
-  ORL: 7, PHI: 8,  // East play-in
-  PHX: 6, POR: 7   // West play-in - przykładowe
+  // West - play-in winners: HOU(5), MIN(6), POR(7), PHX(8)
+  HOU: 5, MIN: 6, POR: 7, PHX: 8
 };
 
 const FALLBACK_BRACKET = {
@@ -40,16 +41,16 @@ const FALLBACK_BRACKET = {
   rounds: {
     1: {
       east: [
-        { id: "e1-1", round: 1, conference: "east", seriesNumber: 1, team1: { abbr: "DET", name: "Detroit Pistons", seed: 1 }, team2: { abbr: "TBD", name: "TBD", seed: 8 }, wins1: 0, wins2: 0, status: "scheduled" },
-        { id: "e1-2", round: 1, conference: "east", seriesNumber: 2, team1: { abbr: "BOS", name: "Boston Celtics", seed: 2 }, team2: { abbr: "TBD", name: "TBD", seed: 7 }, wins1: 0, wins2: 0, status: "scheduled" },
-        { id: "e1-3", round: 1, conference: "east", seriesNumber: 3, team1: { abbr: "NYK", name: "New York Knicks", seed: 3 }, team2: { abbr: "TBD", name: "TBD", seed: 6 }, wins1: 0, wins2: 0, status: "scheduled" },
-        { id: "e1-4", round: 1, conference: "east", seriesNumber: 4, team1: { abbr: "CLE", name: "Cleveland Cavaliers", seed: 4 }, team2: { abbr: "TBD", name: "TBD", seed: 5 }, wins1: 0, wins2: 0, status: "scheduled" }
+        { id: "e1-1", round: 1, conference: "east", seriesNumber: 1, team1: { abbr: "DET", name: "Detroit Pistons", seed: 1 }, team2: { abbr: "ORL", name: "Orlando Magic", seed: 8 }, wins1: 0, wins2: 0, status: "scheduled" },
+        { id: "e1-2", round: 1, conference: "east", seriesNumber: 2, team1: { abbr: "BOS", name: "Boston Celtics", seed: 2 }, team2: { abbr: "PHI", name: "Philadelphia 76ers", seed: 7 }, wins1: 0, wins2: 0, status: "scheduled" },
+        { id: "e1-3", round: 1, conference: "east", seriesNumber: 3, team1: { abbr: "NYK", name: "New York Knicks", seed: 3 }, team2: { abbr: "ATL", name: "Atlanta Hawks", seed: 6 }, wins1: 0, wins2: 0, status: "scheduled" },
+        { id: "e1-4", round: 1, conference: "east", seriesNumber: 4, team1: { abbr: "CLE", name: "Cleveland Cavaliers", seed: 4 }, team2: { abbr: "TOR", name: "Toronto Raptors", seed: 5 }, wins1: 0, wins2: 0, status: "scheduled" }
       ],
       west: [
-        { id: "w1-1", round: 1, conference: "west", seriesNumber: 1, team1: { abbr: "OKC", name: "Oklahoma City Thunder", seed: 1 }, team2: { abbr: "TBD", name: "TBD", seed: 8 }, wins1: 0, wins2: 0, status: "scheduled" },
-        { id: "w1-2", round: 1, conference: "west", seriesNumber: 2, team1: { abbr: "SAS", name: "San Antonio Spurs", seed: 2 }, team2: { abbr: "TBD", name: "TBD", seed: 7 }, wins1: 0, wins2: 0, status: "scheduled" },
-        { id: "w1-3", round: 1, conference: "west", seriesNumber: 3, team1: { abbr: "DEN", name: "Denver Nuggets", seed: 3 }, team2: { abbr: "TBD", name: "TBD", seed: 6 }, wins1: 0, wins2: 0, status: "scheduled" },
-        { id: "w1-4", round: 1, conference: "west", seriesNumber: 4, team1: { abbr: "LAL", name: "Los Angeles Lakers", seed: 4 }, team2: { abbr: "TBD", name: "TBD", seed: 5 }, wins1: 0, wins2: 0, status: "scheduled" }
+        { id: "w1-1", round: 1, conference: "west", seriesNumber: 1, team1: { abbr: "OKC", name: "Oklahoma City Thunder", seed: 1 }, team2: { abbr: "PHX", name: "Phoenix Suns", seed: 8 }, wins1: 0, wins2: 0, status: "scheduled" },
+        { id: "w1-2", round: 1, conference: "west", seriesNumber: 2, team1: { abbr: "SAS", name: "San Antonio Spurs", seed: 2 }, team2: { abbr: "POR", name: "Portland Trail Blazers", seed: 7 }, wins1: 0, wins2: 0, status: "scheduled" },
+        { id: "w1-3", round: 1, conference: "west", seriesNumber: 3, team1: { abbr: "DEN", name: "Denver Nuggets", seed: 3 }, team2: { abbr: "MIN", name: "Minnesota Timberwolves", seed: 6 }, wins1: 0, wins2: 0, status: "scheduled" },
+        { id: "w1-4", round: 1, conference: "west", seriesNumber: 4, team1: { abbr: "LAL", name: "Los Angeles Lakers", seed: 4 }, team2: { abbr: "HOU", name: "Houston Rockets", seed: 5 }, wins1: 0, wins2: 0, status: "scheduled" }
       ]
     },
     2: {
