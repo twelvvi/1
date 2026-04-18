@@ -299,8 +299,8 @@ export default async function handler(req, context) {
     // Zbuduj strukturę bracketu
     let bracketData;
     
-    if (series.length > 0) {
-      // Zacznij od fallbacka i wypełnij danymi z ESPN
+    if (allGames.length > 0) {
+      // Zacznij od fallbacka
       bracketData = {
         season: "2025-26",
         lastUpdated: new Date().toISOString(),
@@ -310,24 +310,67 @@ export default async function handler(req, context) {
         series: series
       };
 
-      // Mapuj serie na strukturę bracketu
-      for (const s of series) {
+      // Znajdź mecze Round 1 (nie play-in) i uzupełnij fallback
+      const round1Games = allGames.filter(g => g.round === 1 && !g.isPlayIn);
+      
+      // Grupuj po konferencji
+      const eastGames = round1Games.filter(g => g.conference === "east" || EAST_TEAMS.includes(g.team1.abbr));
+      const westGames = round1Games.filter(g => g.conference === "west" || WEST_TEAMS.includes(g.team1.abbr));
+      
+      // Uzupełnij East Round 1 - sortuj po seedzie team1
+      eastGames.sort((a, b) => a.team1.seed - b.team1.seed);
+      for (let i = 0; i < Math.min(eastGames.length, 4); i++) {
+        const game = eastGames[i];
+        if (bracketData.rounds[1].east[i]) {
+          bracketData.rounds[1].east[i].team1 = game.team1;
+          bracketData.rounds[1].east[i].team2 = game.team2;
+          bracketData.rounds[1].east[i].status = game.status;
+        }
+      }
+      
+      // Uzupełnij West Round 1 - sortuj po seedzie team1
+      westGames.sort((a, b) => a.team1.seed - b.team1.seed);
+      for (let i = 0; i < Math.min(westGames.length, 4); i++) {
+        const game = westGames[i];
+        if (bracketData.rounds[1].west[i]) {
+          bracketData.rounds[1].west[i].team1 = game.team1;
+          bracketData.rounds[1].west[i].team2 = game.team2;
+          bracketData.rounds[1].west[i].status = game.status;
+        }
+      }
+
+      // Uzupełnij wyniki serii dla Round 1
+      for (const s of series.filter(s => s.round === 1)) {
+        const conf = s.conference;
+        const slots = bracketData.rounds[1][conf];
+        if (slots) {
+          // Znajdź slot po parze drużyn (sprawdź obie kolejności)
+          for (const slot of slots) {
+            if ((slot.team1.abbr === s.team1.abbr && slot.team2.abbr === s.team2.abbr) ||
+                (slot.team1.abbr === s.team2.abbr && slot.team2.abbr === s.team1.abbr)) {
+              slot.wins1 = s.wins1;
+              slot.wins2 = s.wins2;
+              slot.status = s.status;
+              break;
+            }
+          }
+        }
+      }
+
+      // Mapuj wyższe rundy (2, 3, 4) jeśli są dostępne
+      for (const s of series.filter(s => s.round > 1)) {
         const round = s.round;
         const conf = s.conference;
         
-        if (round === 4) {
-          // NBA Finals
-          if (bracketData.rounds[4]?.finals?.[0]) {
-            Object.assign(bracketData.rounds[4].finals[0], {
-              team1: s.team1,
-              team2: s.team2,
-              wins1: s.wins1,
-              wins2: s.wins2,
-              status: s.status
-            });
-          }
+        if (round === 4 && bracketData.rounds[4]?.finals?.[0]) {
+          Object.assign(bracketData.rounds[4].finals[0], {
+            team1: s.team1,
+            team2: s.team2,
+            wins1: s.wins1,
+            wins2: s.wins2,
+            status: s.status
+          });
         } else if (bracketData.rounds[round]?.[conf]) {
-          // Znajdź wolny slot w rundzie
           const slots = bracketData.rounds[round][conf];
           for (let i = 0; i < slots.length; i++) {
             if (slots[i].team1.abbr === "TBD" || slots[i].team2.abbr === "TBD") {
