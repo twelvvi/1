@@ -3,8 +3,8 @@
 // Blokuje edycję gdy seria już się rozpoczęła
 
 import { getStore } from "@netlify/blobs";
+import { VALID_PLAYERS, isValidPlayer } from "./_shared/players.js";
 
-const VALID_PLAYERS = ["kamil", "kuba"];
 const VALID_SCORES = ["4:0", "4:1", "4:2", "4:3"];
 
 export default async function handler(req, context) {
@@ -43,7 +43,7 @@ export default async function handler(req, context) {
     const { player, round, picks, season = "2025-26" } = body;
 
     // Walidacja gracza
-    if (!player || !VALID_PLAYERS.includes(player.toLowerCase())) {
+    if (!isValidPlayer(player)) {
       return new Response(
         JSON.stringify({ error: "Nieznany gracz. Dozwolone: " + VALID_PLAYERS.join(", ") }),
         { status: 400, headers }

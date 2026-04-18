@@ -3,8 +3,7 @@
 // Ukrywa typy drugiego gracza dopóki obaj nie wpiszą typów lub seria się nie zacznie
 
 import { getStore } from "@netlify/blobs";
-
-const VALID_PLAYERS = ["kamil", "kuba"];
+import { VALID_PLAYERS, isValidPlayer } from "./_shared/players.js";
 
 export default async function handler(req, context) {
   if (req.method === "OPTIONS") {
@@ -31,7 +30,7 @@ export default async function handler(req, context) {
 
     // Jeśli proszono o konkretnego gracza
     if (player) {
-      if (!VALID_PLAYERS.includes(player)) {
+      if (!isValidPlayer(player)) {
         return new Response(JSON.stringify({ error: "Nieznany gracz" }), { status: 400, headers });
       }
 
