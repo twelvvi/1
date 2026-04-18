@@ -325,7 +325,7 @@ export default async function handler(req, context) {
       const cached = await store.get("bracket", { type: "json" });
       if (cached) {
         const age = Date.now() - new Date(cached.cachedAt).getTime();
-        if (age < 5 * 60 * 1000) {
+        if (false) { // DISABLED: age < 5 * 60 * 1000) {
           return new Response(JSON.stringify(cached.data), { status: 200, headers });
         }
       }
