@@ -27,6 +27,17 @@ const TEAM_NAMES = {
 const EAST_TEAMS = ["ATL", "BOS", "BKN", "CHA", "CHI", "CLE", "DET", "IND", "MIA", "MIL", "NYK", "ORL", "PHI", "TOR", "WAS"];
 const WEST_TEAMS = ["DAL", "DEN", "GSW", "HOU", "LAC", "LAL", "MEM", "MIN", "NOP", "OKC", "PHX", "POR", "SAC", "SAS", "UTA"];
 
+// Hardcoded seeds dla sezonu 2025-26 (z fallback bracket)
+const TEAM_SEEDS_2025_26 = {
+  // East
+  DET: 1, BOS: 2, NYK: 3, CLE: 4,
+  // West
+  OKC: 1, SAS: 2, DEN: 3, LAL: 4,
+  // Play-in teams (przybliżone, do aktualizacji po zakończeniu play-in)
+  ORL: 7, PHI: 8,  // East play-in
+  PHX: 6, POR: 7   // West play-in - przykładowe
+};
+
 // Fallback bracket
 const FALLBACK_BRACKET = {
   season: "2025-26",
@@ -150,22 +161,53 @@ function parseScoreboardEvent(event) {
   const gameStatus = isCompleted ? "final" : isLive ? "live" : "scheduled";
 
   // Seed - ESPN może mieć w różnych polach
-  const getSeed = (team) => {
+  const getSeed = (team, teamAbbr) => {
     // Sprawdź różne możliwe lokalizacje seedu
-    if (team.seed) return team.seed;
-    if (team.curatedRank?.current) return team.curatedRank.current;
-    if (team.rank) return team.rank;
-    // Sprawdź w notes
-    const teamNotes = comp.notes?.find(n => n.text?.includes(team.team?.abbreviation));
-    if (teamNotes) {
-      const match = teamNotes.text.match(/#(\d+)/);
+    if (team.seed && team.seed > 0) return team.seed;
+    if (team.curatedRank?.current && team.curatedRank.current > 0) return team.curatedRank.current;
+    if (team.rank && team.rank > 0) return team.rank;
+    if (team.playoffSeed && team.playoffSeed > 0) return team.playoffSeed;
+    if (team.seriesSeed && team.seriesSeed > 0) return team.seriesSeed;
+    
+    // Sprawdź w notes meczu
+    if (comp.notes) {
+      for (const note of comp.notes) {
+        if (note.text?.includes(teamAbbr)) {
+          const match = note.text.match(/#(\d+)/);
+          if (match) return parseInt(match[1]);
+        }
+      }
+    }
+    
+    // Sprawdź w headline
+    if (comp.headline?.includes(teamAbbr)) {
+      const match = comp.headline.match(new RegExp(`${teamAbbr}.*?(\\d+)`, 'i'));
       if (match) return parseInt(match[1]);
     }
+    
+    // Sprawdź w nazwie drużyny
+    if (team.team?.shortDisplayName?.includes("(")) {
+      const match = team.team.shortDisplayName.match(/\((\d+)\)/);
+      if (match) return parseInt(match[1]);
+    }
+    
+    // Fallback: hardcoded seeds dla sezonu 2025-26
+    if (TEAM_SEEDS_2025_26[teamAbbr]) {
+      return TEAM_SEEDS_2025_26[teamAbbr];
+    }
+    
     return 0;
   };
 
-  const seed1 = getSeed(team1);
-  const seed2 = getSeed(team2);
+  const seed1 = getSeed(team1, t1Abbr);
+  const seed2 = getSeed(team2, t2Abbr);
+
+  // Debug - pokaż wszystkie dostępne pola dla diagnozy
+  if (seed1 === 0 || seed2 === 0) {
+    console.log(`  DEBUG ${t1Abbr} fields:`, Object.keys(team1).join(","));
+    console.log(`  DEBUG ${t1Abbr} data:`, JSON.stringify({seed: team1.seed, rank: team1.rank, curatedRank: team1.curatedRank, playoffSeed: team1.playoffSeed, seriesSeed: team1.seriesSeed}));
+    console.log(`  DEBUG comp notes:`, JSON.stringify(comp.notes?.map(n => n.text)));
+  }
 
   console.log(`  Teams: ${t1Abbr}(seed:${seed1}) vs ${t2Abbr}(seed:${seed2}), round=${round}, isPlayIn=${isPlayIn}`);
 
