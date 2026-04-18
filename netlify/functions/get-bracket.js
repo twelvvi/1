@@ -122,18 +122,22 @@ function parseScoreboardEvent(event) {
   
   const name = (event.name || "").toLowerCase();
   const shortName = (event.shortName || "").toLowerCase();
+  const notes = (event.notes?.[0]?.text || "").toLowerCase();
   
-  if (name.includes("play-in") || shortName.includes("play-in")) {
+  // Debug log
+  console.log(`Parsing: ${event.name}, seasonType=${event.season?.type}, status=${event.status?.type?.name}`);
+  
+  if (name.includes("play-in") || shortName.includes("play-in") || notes.includes("play-in")) {
     isPlayIn = true;
     roundName = "Play-In";
-    round = 0; // Play-in przed Round 1
-  } else if (name.includes("conference semifinal") || shortName.includes("semifinal")) {
+    round = 0;
+  } else if (name.includes("conference semifinal") || shortName.includes("semifinal") || notes.includes("semifinal")) {
     round = 2;
     roundName = "Conference Semifinals";
-  } else if (name.includes("conference final") || shortName.includes("conf final")) {
+  } else if (name.includes("conference final") || shortName.includes("conf final") || notes.includes("conf final")) {
     round = 3;
     roundName = "Conference Finals";
-  } else if (name.includes("nba final") || name.includes("championship") || shortName.includes("final")) {
+  } else if (name.includes("nba final") || name.includes("championship") || shortName.includes("final") || notes.includes("finals")) {
     round = 4;
     roundName = "NBA Finals";
     conference = "finals";
@@ -144,6 +148,26 @@ function parseScoreboardEvent(event) {
   const isCompleted = status?.type?.completed || false;
   const isLive = status?.type?.state === "in";
   const gameStatus = isCompleted ? "final" : isLive ? "live" : "scheduled";
+
+  // Seed - ESPN może mieć w różnych polach
+  const getSeed = (team) => {
+    // Sprawdź różne możliwe lokalizacje seedu
+    if (team.seed) return team.seed;
+    if (team.curatedRank?.current) return team.curatedRank.current;
+    if (team.rank) return team.rank;
+    // Sprawdź w notes
+    const teamNotes = comp.notes?.find(n => n.text?.includes(team.team?.abbreviation));
+    if (teamNotes) {
+      const match = teamNotes.text.match(/#(\d+)/);
+      if (match) return parseInt(match[1]);
+    }
+    return 0;
+  };
+
+  const seed1 = getSeed(team1);
+  const seed2 = getSeed(team2);
+
+  console.log(`  Teams: ${t1Abbr}(seed:${seed1}) vs ${t2Abbr}(seed:${seed2}), round=${round}, isPlayIn=${isPlayIn}`);
 
   return {
     eventId: event.id,
@@ -162,7 +186,7 @@ function parseScoreboardEvent(event) {
       abbr: t1Abbr,
       name: TEAM_NAMES[t1Abbr] || team1.team?.displayName || "TBD",
       id: team1.team?.id,
-      seed: team1.seed || 0,
+      seed: seed1,
       score: parseInt(team1.score || 0),
       winner: team1.winner || false,
       homeAway: team1.homeAway
@@ -171,7 +195,7 @@ function parseScoreboardEvent(event) {
       abbr: t2Abbr,
       name: TEAM_NAMES[t2Abbr] || team2.team?.displayName || "TBD",
       id: team2.team?.id,
-      seed: team2.seed || 0,
+      seed: seed2,
       score: parseInt(team2.score || 0),
       winner: team2.winner || false,
       homeAway: team2.homeAway

@@ -49,7 +49,7 @@ export default async function handler(req, context) {
   try {
     // Pobierz drabinkę
     const bracketRes = await fetch(
-      `${process.env.URL || "http://localhost:8888"}/.netlify/functions/get-bracket`
+      `${process.env.URL || ""}/api/get-bracket`
     );
     if (!bracketRes.ok) throw new Error("Nie udało się pobrać drabinki");
     const bracket = await bracketRes.json();
