@@ -4,11 +4,17 @@
 
 export const CONFIG = {
   players: [
-    { id: "mateusz", name: "Mateusz", avatar: "???" },
-    { id: "filip", name: "Filip", avatar: "???" }
+    { id: "mateusz", name: "Mateusz", avatar: "🏀" },
+    { id: "filip", name: "Filip", avatar: "🔥" }
   ],
   season: "2025-26",
-  nbaSeasonYear: "2025",
+  // Rok końca sezonu NBA (ESPN używa tego roku w API).
+  // 2025-26 → 2026; 2024-25 → 2025.
+  nbaSeasonYear: "2026",
+  // Daty rozpoczęcia i zakończenia playoffs (format YYYYMMDD dla ESPN API).
+  // Jeśli zmienia się sezon, zaktualizuj te wartości.
+  playoffsStart: "20260418",
+  playoffsEnd: "20260630",
   // Odświeżaj dane co N milisekund (domyślnie 5 minut)
   refreshInterval: 5 * 60 * 1000,
 };
