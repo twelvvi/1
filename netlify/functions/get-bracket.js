@@ -1,6 +1,6 @@
 // netlify/functions/get-bracket.js
 // Pobiera aktualną drabinkę playoffów NBA z ESPN API
-// z cache 5-minutowym i fallback na dane hardkodowane
+// Iteracja dzień po dniu, rozpoznawanie rund, budowanie serii
 
 import { getStore } from "@netlify/blobs";
 
@@ -23,7 +23,11 @@ const TEAM_NAMES = {
   SAC: "Sacramento Kings", SAS: "San Antonio Spurs", TOR: "Toronto Raptors", UTA: "Utah Jazz", WAS: "Washington Wizards"
 };
 
-// Fallback – pełna struktura z placeholderami dla przyszłych rund
+// Konferencje
+const EAST_TEAMS = ["ATL", "BOS", "BKN", "CHA", "CHI", "CLE", "DET", "IND", "MIA", "MIL", "NYK", "ORL", "PHI", "TOR", "WAS"];
+const WEST_TEAMS = ["DAL", "DEN", "GSW", "HOU", "LAC", "LAL", "MEM", "MIN", "NOP", "OKC", "PHX", "POR", "SAC", "SAS", "UTA"];
+
+// Fallback bracket
 const FALLBACK_BRACKET = {
   season: "2025-26",
   lastUpdated: new Date().toISOString(),
@@ -61,68 +65,171 @@ const FALLBACK_BRACKET = {
   }
 };
 
-// Agreguje mecze w serie playoffowe
-function aggregateSeries(events) {
-  const seriesMap = new Map();
-  
-  for (const event of events) {
-    if (!event?.competitions?.[0]) continue;
-    
-    const comp = event.competitions[0];
-    const teams = comp.competitors || [];
-    if (teams.length < 2) continue;
+// Format daty YYYYMMDD
+function formatDate(date) {
+  return date.toISOString().slice(0, 10).replace(/-/g, "");
+}
 
-    const teamIds = teams.map(t => t.team?.id).filter(Boolean).sort().join("-");
-    if (!seriesMap.has(teamIds)) {
-      seriesMap.set(teamIds, { events: [], teams, seriesId: null });
-    }
-    seriesMap.get(teamIds).events.push(event);
-  }
-
-  const result = [];
-  for (const [key, data] of seriesMap) {
-    const events = data.events.sort((a, b) => new Date(a.date) - new Date(b.date));
-    const wins = {};
-    
-    for (const event of events) {
-      const comp = event.competitions[0];
-      for (const team of comp.competitors) {
-        if (event.status?.type?.completed && team.winner) {
-          const abbr = ESPN_TEAM_MAP[team.team?.id] || team.team?.abbreviation;
-          wins[abbr] = (wins[abbr] || 0) + 1;
-        }
-      }
-    }
-
-    const teams = data.teams;
-    const t1Abbr = ESPN_TEAM_MAP[teams[0].team?.id] || teams[0].team?.abbreviation || "TBD";
-    const t2Abbr = ESPN_TEAM_MAP[teams[1].team?.id] || teams[1].team?.abbreviation || "TBD";
-    
-    const wins1 = wins[t1Abbr] || 0;
-    const wins2 = wins[t2Abbr] || 0;
-    const isComplete = wins1 >= 4 || wins2 >= 4;
-    const isInProgress = (wins1 > 0 || wins2 > 0) && !isComplete;
-
-    result.push({
-      wins1,
-      wins2,
-      status: isComplete ? "completed" : isInProgress ? "inProgress" : "scheduled",
-      team1: {
-        abbr: t1Abbr,
-        name: TEAM_NAMES[t1Abbr] || teams[0].team?.displayName || "TBD",
-        seed: teams[0].seed || 0
-      },
-      team2: {
-        abbr: t2Abbr,
-        name: TEAM_NAMES[t2Abbr] || teams[1].team?.displayName || "TBD",
-        seed: teams[1].seed || 0
-      }
-    });
-  }
-
+// Dodaj dni do daty
+function addDays(date, days) {
+  const result = new Date(date);
+  result.setDate(result.getDate() + days);
   return result;
 }
 
+// Pobierz scoreboard dla konkretnej daty
+async function fetchScoreboardByDate(dateStr) {
+  const url = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${dateStr}&seasontype=3`;
+  console.log(`Fetching: ${url}`);
+  
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) {
+      console.warn(`HTTP ${res.status} for ${dateStr}`);
+      return null;
+    }
+    return await res.json();
+  } catch (err) {
+    console.warn(`Error fetching ${dateStr}: ${err.message}`);
+    return null;
+  }
+}
+
+// Parsuj event ze scoreboardu
+function parseScoreboardEvent(event) {
+  if (!event?.competitions?.[0]) return null;
+  
+  const comp = event.competitions[0];
+  const teams = comp.competitors || [];
+  if (teams.length < 2) return null;
+
+  const team1 = teams[0];
+  const team2 = teams[1];
+  
+  const t1Abbr = ESPN_TEAM_MAP[team1.team?.id] || team1.team?.abbreviation || "TBD";
+  const t2Abbr = ESPN_TEAM_MAP[team2.team?.id] || team2.team?.abbreviation || "TBD";
+
+  // Określ konferencję
+  let conference = "east";
+  if (WEST_TEAMS.includes(t1Abbr) || WEST_TEAMS.includes(t2Abbr)) {
+    conference = "west";
+  }
+
+  // Określ rundę na podstawie nazwy/typu
+  let round = 1;
+  let roundName = "First Round";
+  let isPlayIn = false;
+  
+  const name = (event.name || "").toLowerCase();
+  const shortName = (event.shortName || "").toLowerCase();
+  
+  if (name.includes("play-in") || shortName.includes("play-in")) {
+    isPlayIn = true;
+    roundName = "Play-In";
+    round = 0; // Play-in przed Round 1
+  } else if (name.includes("conference semifinal") || shortName.includes("semifinal")) {
+    round = 2;
+    roundName = "Conference Semifinals";
+  } else if (name.includes("conference final") || shortName.includes("conf final")) {
+    round = 3;
+    roundName = "Conference Finals";
+  } else if (name.includes("nba final") || name.includes("championship") || shortName.includes("final")) {
+    round = 4;
+    roundName = "NBA Finals";
+    conference = "finals";
+  }
+
+  // Status meczu
+  const status = event.status;
+  const isCompleted = status?.type?.completed || false;
+  const isLive = status?.type?.state === "in";
+  const gameStatus = isCompleted ? "final" : isLive ? "live" : "scheduled";
+
+  return {
+    eventId: event.id,
+    date: event.date,
+    name: event.name,
+    shortName: event.shortName,
+    round,
+    roundName,
+    isPlayIn,
+    conference,
+    status: gameStatus,
+    period: status?.period,
+    clock: status?.displayClock,
+    completed: isCompleted,
+    team1: {
+      abbr: t1Abbr,
+      name: TEAM_NAMES[t1Abbr] || team1.team?.displayName || "TBD",
+      id: team1.team?.id,
+      seed: team1.seed || 0,
+      score: parseInt(team1.score || 0),
+      winner: team1.winner || false,
+      homeAway: team1.homeAway
+    },
+    team2: {
+      abbr: t2Abbr,
+      name: TEAM_NAMES[t2Abbr] || team2.team?.displayName || "TBD",
+      id: team2.team?.id,
+      seed: team2.seed || 0,
+      score: parseInt(team2.score || 0),
+      winner: team2.winner || false,
+      homeAway: team2.homeAway
+    }
+  };
+}
+
+// Zbuduj serie z listy meczów
+function buildSeries(games) {
+  // Grupuj mecze po parze drużyn (niezależnie od kolejności)
+  const seriesMap = new Map();
+  
+  for (const game of games) {
+    if (game.isPlayIn) continue; // Pomiń play-iny przy budowaniu serii playoff
+    
+    const key = [game.team1.abbr, game.team2.abbr].sort().join("-");
+    
+    if (!seriesMap.has(key)) {
+      seriesMap.set(key, {
+        team1: game.team1,
+        team2: game.team2,
+        conference: game.conference,
+        round: game.round,
+        games: [],
+        wins1: 0,
+        wins2: 0
+      });
+    }
+    
+    const series = seriesMap.get(key);
+    series.games.push(game);
+    
+    // Zliczaj zwycięstwa
+    if (game.completed) {
+      if (game.team1.winner) series.wins1++;
+      else if (game.team2.winner) series.wins2++;
+    }
+  }
+  
+  // Konwertuj na tablicę i sortuj
+  return Array.from(seriesMap.values()).map(series => {
+    // Sortuj mecze po dacie
+    series.games.sort((a, b) => new Date(a.date) - new Date(b.date));
+    
+    // Określ status serii
+    const isComplete = series.wins1 >= 4 || series.wins2 >= 4;
+    const isInProgress = (series.wins1 > 0 || series.wins2 > 0) && !isComplete;
+    
+    return {
+      ...series,
+      status: isComplete ? "completed" : isInProgress ? "inProgress" : "scheduled",
+      gamesPlayed: series.games.length,
+      lastGame: series.games[series.games.length - 1]
+    };
+  });
+}
+
+// Główna funkcja handler
 export default async function handler(req, context) {
   if (req.method === "OPTIONS") {
     return new Response(null, {
@@ -141,6 +248,7 @@ export default async function handler(req, context) {
   };
 
   try {
+    // Sprawdź cache
     let store;
     try {
       store = getStore("bracket-cache");
@@ -155,68 +263,98 @@ export default async function handler(req, context) {
       console.warn("Błąd odczytu cache:", blobErr.message);
     }
 
-    let bracketData = null;
-    let apiError = null;
+    // Playoffs start: 19 kwietnia 2026
+    const playoffStart = new Date("2026-04-19");
+    const today = new Date();
+    const endDate = addDays(today, 1); // Do jutra (przyszłe mecze mogą być zaplanowane)
 
-    try {
-      console.log("Pobieram dane z ESPN API...");
-      const espnRes = await fetch(
-        "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20250401-20250630",
-        { signal: AbortSignal.timeout(10000) }
-      );
-
-      if (!espnRes.ok) {
-        throw new Error(`ESPN API: ${espnRes.status}`);
-      }
-
-      const espnData = await espnRes.json();
-      const playoffEvents = (espnData.events || []).filter(e => 
-        e.season?.type === 3 || (e.name && e.name.includes("at"))
-      );
-
-      if (playoffEvents.length > 0) {
-        const series = aggregateSeries(playoffEvents);
-        const eastTeams = ["ATL", "BOS", "BKN", "CHA", "CHI", "CLE", "DET", "IND", "MIA", "MIL", "NYK", "ORL", "PHI", "TOR", "WAS"];
-        const westTeams = ["DAL", "DEN", "GSW", "HOU", "LAC", "LAL", "MEM", "MIN", "NOP", "OKC", "PHX", "POR", "SAC", "SAS", "UTA"];
-        
-        bracketData = {
-          season: "2025-26",
-          lastUpdated: new Date().toISOString(),
-          source: "espn-api",
-          rounds: JSON.parse(JSON.stringify(FALLBACK_BRACKET.rounds))
-        };
-
-        const eastSeries = series.filter(s => eastTeams.includes(s.team1.abbr) || eastTeams.includes(s.team2.abbr));
-        const westSeries = series.filter(s => westTeams.includes(s.team1.abbr) || westTeams.includes(s.team2.abbr));
-
-        eastSeries.slice(0, 4).forEach((s, i) => {
-          if (bracketData.rounds[1].east[i]) {
-            Object.assign(bracketData.rounds[1].east[i], s);
-            bracketData.rounds[1].east[i].id = `e1-${i + 1}`;
+    // Iteruj dzień po dniu
+    const allGames = [];
+    const seenEventIds = new Set();
+    
+    for (let d = new Date(playoffStart); d <= endDate; d = addDays(d, 1)) {
+      const dateStr = formatDate(d);
+      const data = await fetchScoreboardByDate(dateStr);
+      
+      if (data?.events) {
+        for (const event of data.events) {
+          // Deduplikacja
+          if (seenEventIds.has(event.id)) continue;
+          seenEventIds.add(event.id);
+          
+          const parsed = parseScoreboardEvent(event);
+          if (parsed) {
+            allGames.push(parsed);
           }
-        });
-        westSeries.slice(0, 4).forEach((s, i) => {
-          if (bracketData.rounds[1].west[i]) {
-            Object.assign(bracketData.rounds[1].west[i], s);
-            bracketData.rounds[1].west[i].id = `w1-${i + 1}`;
-          }
-        });
-
-        console.log(`ESPN: znaleziono ${series.length} serii`);
+        }
       }
-    } catch (err) {
-      apiError = err.message;
-      console.error("Błąd ESPN API:", err.message);
     }
 
-    if (!bracketData) {
-      bracketData = { 
-        ...FALLBACK_BRACKET, 
-        source: "fallback", 
-        apiError: apiError || "Brak danych z API" 
+    console.log(`Pobrano ${allGames.length} unikalnych meczów`);
+
+    // Zbuduj serie
+    const series = buildSeries(allGames);
+    console.log(`Zbudowano ${series.length} serii playoffowych`);
+
+    // Zbuduj strukturę bracketu
+    let bracketData;
+    
+    if (series.length > 0) {
+      // Zacznij od fallbacka i wypełnij danymi z ESPN
+      bracketData = {
+        season: "2025-26",
+        lastUpdated: new Date().toISOString(),
+        source: "espn-api",
+        rounds: JSON.parse(JSON.stringify(FALLBACK_BRACKET.rounds)),
+        games: allGames,
+        series: series
+      };
+
+      // Mapuj serie na strukturę bracketu
+      for (const s of series) {
+        const round = s.round;
+        const conf = s.conference;
+        
+        if (round === 4) {
+          // NBA Finals
+          if (bracketData.rounds[4]?.finals?.[0]) {
+            Object.assign(bracketData.rounds[4].finals[0], {
+              team1: s.team1,
+              team2: s.team2,
+              wins1: s.wins1,
+              wins2: s.wins2,
+              status: s.status
+            });
+          }
+        } else if (bracketData.rounds[round]?.[conf]) {
+          // Znajdź wolny slot w rundzie
+          const slots = bracketData.rounds[round][conf];
+          for (let i = 0; i < slots.length; i++) {
+            if (slots[i].team1.abbr === "TBD" || slots[i].team2.abbr === "TBD") {
+              Object.assign(slots[i], {
+                team1: s.team1,
+                team2: s.team2,
+                wins1: s.wins1,
+                wins2: s.wins2,
+                status: s.status
+              });
+              break;
+            }
+          }
+        }
+      }
+    } else {
+      // Brak danych - fallback
+      bracketData = {
+        ...FALLBACK_BRACKET,
+        source: "fallback",
+        apiError: "Brak meczów playoffowych w ESPN API",
+        games: [],
+        series: []
       };
     }
 
+    // Zapisz do cache
     if (store) {
       try {
         await store.setJSON("bracket", { data: bracketData, cachedAt: new Date().toISOString() });
@@ -230,7 +368,13 @@ export default async function handler(req, context) {
   } catch (err) {
     console.error("Krytyczny błąd get-bracket:", err);
     return new Response(
-      JSON.stringify({ ...FALLBACK_BRACKET, source: "fallback", error: err.message }),
+      JSON.stringify({ 
+        ...FALLBACK_BRACKET, 
+        source: "fallback", 
+        error: err.message,
+        games: [],
+        series: []
+      }),
       { status: 200, headers }
     );
   }
