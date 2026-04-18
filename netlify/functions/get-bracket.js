@@ -366,6 +366,13 @@ export default async function handler(req, context) {
     const series = buildSeries(allGames);
     console.log(`Zbudowano ${series.length} serii playoffowych`);
 
+    // Szczegółowe logowanie dla debugowania
+    console.log('Serie szczegóły:');
+    series.forEach(s => {
+      console.log(`  ${s.team1.abbr} (${s.team1.seed}) vs ${s.team2.abbr} (${s.team2.seed}) - Round ${s.round} ${s.conference}`);
+      console.log(`    Mecze: ${s.games.length}, Wynik: ${s.wins1}-${s.wins2}, Status: ${s.status}`);
+    });
+
     // Zbuduj strukturę bracketu
     let bracketData;
     
@@ -391,60 +398,87 @@ export default async function handler(req, context) {
       console.log(`East Round 1: ${eastGames.length} games`);
       console.log(`West Round 1: ${westGames.length} games`);
       
-      // Funkcja dopasowująca mecze do slotów na podstawie seedów
-      const populateRound1 = (games, slots, confName) => {
-        // Sortuj po seedzie (niższy seed = wyższa pozycja)
-        games.sort((a, b) => a.team1.seed - b.team1.seed);
-        
-        for (const game of games) {
-          // Znajdź slot który pasuje do seedów tego meczu
-          // Round 1: 1vs8, 2vs7, 3vs6, 4vs5
-          const seedPair = [game.team1.seed, game.team2.seed].sort((a, b) => a - b);
-          
-          // Znajdź slot który ma pasujące seedy lub jest pusty (TBD)
-          let targetSlot = null;
-          let slotIndex = -1;
-          
-          for (let i = 0; i < slots.length; i++) {
-            const slot = slots[i];
-            const slotSeeds = [slot.team1.seed, slot.team2.seed].sort((a, b) => a - b);
-            
-            // Sprawdź czy to pasujący slot (seed lub TBD)
-            if (slot.team1.abbr === "TBD" || slot.team2.abbr === "TBD") {
-              // Slot jest pusty - sprawdź czy seed1 pasuje
-              if (slot.team1.seed === game.team1.seed || slot.team1.seed === game.team2.seed) {
-                targetSlot = slot;
-                slotIndex = i;
-                break;
-              }
-            } else if (seedPair[0] === slotSeeds[0] && seedPair[1] === slotSeeds[1]) {
-              // Pasujące seed pair
-              targetSlot = slot;
-              slotIndex = i;
-              break;
-            }
-          }
-          
-          if (targetSlot) {
-            // Upewnij się że team1 ma niższy seed
-            if (game.team1.seed < game.team2.seed) {
-              targetSlot.team1 = game.team1;
-              targetSlot.team2 = game.team2;
-            } else {
-              targetSlot.team1 = game.team2;
-              targetSlot.team2 = game.team1;
-            }
-            targetSlot.status = game.status;
-            console.log(`[${confName}] Matched: ${targetSlot.team1.abbr}(${targetSlot.team1.seed}) vs ${targetSlot.team2.abbr}(${targetSlot.team2.seed}) to slot ${slotIndex}`);
-          } else {
-            console.log(`[${confName}] Could not match: ${game.team1.abbr}(${game.team1.seed}) vs ${game.team2.abbr}(${game.team2.seed})`);
-          }
+      console.log('\nRound 1 East Games:');
+      eastGames.forEach(g => {
+        console.log(`  ${g.team1.abbr}(${g.team1.seed}) vs ${g.team2.abbr}(${g.team2.seed})`);
+      });
+
+      console.log('\nRound 1 West Games:');
+      westGames.forEach(g => {
+        console.log(`  ${g.team1.abbr}(${g.team1.seed}) vs ${g.team2.abbr}(${g.team2.seed})`);
+      });
+
+      // Uzupełnij East Round 1 - lepsze dopasowanie po seedach
+      const eastSeriesMap = new Map();
+      for (const game of eastGames) {
+        // Utwórz klucz na podstawie seedów
+        const seeds = [game.team1.seed, game.team2.seed].sort((a, b) => a - b);
+        const seedKey = seeds.join('-');
+
+        // Zapisz pierwsze wystąpienie tej pary seedów
+        if (!eastSeriesMap.has(seedKey)) {
+          eastSeriesMap.set(seedKey, game);
         }
-      };
-      
-      // Uzupełnij Round 1
-      populateRound1(eastGames, bracketData.rounds[1].east, "East");
-      populateRound1(westGames, bracketData.rounds[1].west, "West");
+      }
+
+      // Standardowy schemat NBA playoff:
+      // Slot 0: seed 1 vs 8, Slot 1: seed 2 vs 7, Slot 2: seed 3 vs 6, Slot 3: seed 4 vs 5
+      const eastSlotSeeds = [
+        [1, 8], // slot 0
+        [2, 7], // slot 1
+        [3, 6], // slot 2
+        [4, 5]  // slot 3
+      ];
+
+      for (let i = 0; i < 4; i++) {
+        const expectedSeeds = eastSlotSeeds[i];
+        const seedKey = expectedSeeds.join('-');
+        const game = eastSeriesMap.get(seedKey);
+
+        if (game && bracketData.rounds[1].east[i]) {
+          // Upewnij się że niższy seed (np. 1) jest zawsze team1
+          const shouldSwap = game.team1.seed > game.team2.seed;
+
+          bracketData.rounds[1].east[i].team1 = shouldSwap ? game.team2 : game.team1;
+          bracketData.rounds[1].east[i].team2 = shouldSwap ? game.team1 : game.team2;
+          bracketData.rounds[1].east[i].status = game.status;
+          console.log(`[East] Matched slot ${i}: ${bracketData.rounds[1].east[i].team1.abbr}(${bracketData.rounds[1].east[i].team1.seed}) vs ${bracketData.rounds[1].east[i].team2.abbr}(${bracketData.rounds[1].east[i].team2.seed})`);
+        } else {
+          console.log(`[East] No game for slot ${i} (seeds ${seedKey})`);
+        }
+      }
+
+      // To samo dla West
+      const westSeriesMap = new Map();
+      for (const game of westGames) {
+        const seeds = [game.team1.seed, game.team2.seed].sort((a, b) => a - b);
+        const seedKey = seeds.join('-');
+
+        if (!westSeriesMap.has(seedKey)) {
+          westSeriesMap.set(seedKey, game);
+        }
+      }
+
+      const westSlotSeeds = [
+        [1, 8], [2, 7], [3, 6], [4, 5]
+      ];
+
+      for (let i = 0; i < 4; i++) {
+        const expectedSeeds = westSlotSeeds[i];
+        const seedKey = expectedSeeds.join('-');
+        const game = westSeriesMap.get(seedKey);
+
+        if (game && bracketData.rounds[1].west[i]) {
+          const shouldSwap = game.team1.seed > game.team2.seed;
+
+          bracketData.rounds[1].west[i].team1 = shouldSwap ? game.team2 : game.team1;
+          bracketData.rounds[1].west[i].team2 = shouldSwap ? game.game1 : game.team2;
+          bracketData.rounds[1].west[i].status = game.status;
+          console.log(`[West] Matched slot ${i}: ${bracketData.rounds[1].west[i].team1.abbr}(${bracketData.rounds[1].west[i].team1.seed}) vs ${bracketData.rounds[1].west[i].team2.abbr}(${bracketData.rounds[1].west[i].team2.seed})`);
+        } else {
+          console.log(`[West] No game for slot ${i} (seeds ${seedKey})`);
+        }
+      }
 
       // Uzupełnij wyniki serii dla Round 1
       for (const s of series.filter(s => s.round === 1)) {
