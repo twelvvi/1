@@ -3,8 +3,7 @@
 // System: 1 pkt za drużynę, 2 pkt za dokładny wynik + drużyna
 
 import { getStore } from "@netlify/blobs";
-
-const VALID_PLAYERS = ["kamil", "kuba"];
+import { VALID_PLAYERS } from "./_shared/config.js";
 
 // Oblicza punkty za pojedynczą serię
 function calculateSeriesPoints(pick, series) {

@@ -4,8 +4,8 @@
 
 export const CONFIG = {
   players: [
-    { id: "mateusz", name: "Mateusz", avatar: "???" },
-    { id: "filip", name: "Filip", avatar: "???" }
+    { id: "mateusz", name: "Mateusz", avatar: "🦊" },
+    { id: "filip", name: "Filip", avatar: "🦁" }
   ],
   season: "2025-26",
   nbaSeasonYear: "2025",

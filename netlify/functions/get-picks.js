@@ -3,8 +3,7 @@
 // Ukrywa typy drugiego gracza dopóki obaj nie wpiszą typów lub seria się nie zacznie
 
 import { getStore } from "@netlify/blobs";
-
-const VALID_PLAYERS = ["kamil", "kuba"];
+import { VALID_PLAYERS } from "./_shared/config.js";
 
 export default async function handler(req, context) {
   if (req.method === "OPTIONS") {

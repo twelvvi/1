@@ -1,10 +1,29 @@
 // netlify/functions/get-bracket.js
-// Pobiera aktualną drabinkę playoffów NBA z zewnętrznego API
+// Pobiera aktualną drabinkę playoffów NBA z ESPN API
 // z cache 5-minutowym i fallback na dane hardkodowane
 
 import { getStore } from "@netlify/blobs";
 
-// Fallback – hardkodowane dane playoffów NBA 2026
+// Mapowanie team ID z ESPN do skrótów NBA
+const ESPN_TEAM_MAP = {
+  1: "ATL", 2: "BOS", 3: "NOP", 4: "CHI", 5: "CLE", 6: "DAL", 7: "DEN", 8: "DET",
+  9: "GSW", 10: "HOU", 11: "IND", 12: "LAC", 13: "LAL", 14: "MIA", 15: "MIL",
+  16: "MIN", 17: "BKN", 18: "NYK", 19: "ORL", 20: "PHI", 21: "PHX", 22: "POR",
+  23: "SAC", 24: "SAS", 25: "OKC", 26: "TOR", 27: "UTA", 28: "MEM", 29: "WAS",
+  30: "CHA"
+};
+
+const TEAM_NAMES = {
+  ATL: "Atlanta Hawks", BOS: "Boston Celtics", BKN: "Brooklyn Nets", CHA: "Charlotte Hornets",
+  CHI: "Chicago Bulls", CLE: "Cleveland Cavaliers", DAL: "Dallas Mavericks", DEN: "Denver Nuggets",
+  DET: "Detroit Pistons", GSW: "Golden State Warriors", HOU: "Houston Rockets", IND: "Indiana Pacers",
+  LAC: "LA Clippers", LAL: "Los Angeles Lakers", MIA: "Miami Heat", MIL: "Milwaukee Bucks",
+  MIN: "Minnesota Timberwolves", NOP: "New Orleans Pelicans", NYK: "New York Knicks", OKC: "Oklahoma City Thunder",
+  ORL: "Orlando Magic", PHI: "Philadelphia 76ers", PHX: "Phoenix Suns", POR: "Portland Trail Blazers",
+  SAC: "Sacramento Kings", SAS: "San Antonio Spurs", TOR: "Toronto Raptors", UTA: "Utah Jazz", WAS: "Washington Wizards"
+};
+
+// Fallback – pełna struktura z placeholderami dla przyszłych rund
 const FALLBACK_BRACKET = {
   season: "2025-26",
   lastUpdated: new Date().toISOString(),
@@ -12,97 +31,99 @@ const FALLBACK_BRACKET = {
   rounds: {
     1: {
       east: [
-        {
-          id: "e1s1", round: 1, conference: "east", seriesNumber: 1,
-          team1: { abbr: "CLE", name: "Cleveland Cavaliers", seed: 1, teamId: 1610612739 },
-          team2: { abbr: "ATL", name: "Atlanta Hawks", seed: 8, teamId: 1610612737 },
-          wins1: 0, wins2: 0, status: "scheduled", startDate: "2026-04-18"
-        },
-        {
-          id: "e1s2", round: 1, conference: "east", seriesNumber: 2,
-          team1: { abbr: "BOS", name: "Boston Celtics", seed: 2, teamId: 1610612738 },
-          team2: { abbr: "DET", name: "Detroit Pistons", seed: 7, teamId: 1610612765 },
-          wins1: 0, wins2: 0, status: "scheduled", startDate: "2026-04-19"
-        },
-        {
-          id: "e1s3", round: 1, conference: "east", seriesNumber: 3,
-          team1: { abbr: "NYK", name: "New York Knicks", seed: 3, teamId: 1610612752 },
-          team2: { abbr: "MIA", name: "Miami Heat", seed: 6, teamId: 1610612748 },
-          wins1: 0, wins2: 0, status: "scheduled", startDate: "2026-04-19"
-        },
-        {
-          id: "e1s4", round: 1, conference: "east", seriesNumber: 4,
-          team1: { abbr: "IND", name: "Indiana Pacers", seed: 4, teamId: 1610612754 },
-          team2: { abbr: "MIL", name: "Milwaukee Bucks", seed: 5, teamId: 1610612749 },
-          wins1: 0, wins2: 0, status: "scheduled", startDate: "2026-04-20"
-        }
+        { id: "e1-1", round: 1, conference: "east", seriesNumber: 1, team1: { abbr: "DET", name: "Detroit Pistons", seed: 1 }, team2: { abbr: "TBD", name: "TBD", seed: 8 }, wins1: 0, wins2: 0, status: "scheduled" },
+        { id: "e1-2", round: 1, conference: "east", seriesNumber: 2, team1: { abbr: "BOS", name: "Boston Celtics", seed: 2 }, team2: { abbr: "TBD", name: "TBD", seed: 7 }, wins1: 0, wins2: 0, status: "scheduled" },
+        { id: "e1-3", round: 1, conference: "east", seriesNumber: 3, team1: { abbr: "NYK", name: "New York Knicks", seed: 3 }, team2: { abbr: "TBD", name: "TBD", seed: 6 }, wins1: 0, wins2: 0, status: "scheduled" },
+        { id: "e1-4", round: 1, conference: "east", seriesNumber: 4, team1: { abbr: "CLE", name: "Cleveland Cavaliers", seed: 4 }, team2: { abbr: "TBD", name: "TBD", seed: 5 }, wins1: 0, wins2: 0, status: "scheduled" }
       ],
       west: [
-        {
-          id: "w1s1", round: 1, conference: "west", seriesNumber: 1,
-          team1: { abbr: "OKC", name: "Oklahoma City Thunder", seed: 1, teamId: 1610612760 },
-          team2: { abbr: "POR", name: "Portland Trail Blazers", seed: 8, teamId: 1610612757 },
-          wins1: 0, wins2: 0, status: "scheduled", startDate: "2026-04-18"
-        },
-        {
-          id: "w1s2", round: 1, conference: "west", seriesNumber: 2,
-          team1: { abbr: "HOU", name: "Houston Rockets", seed: 2, teamId: 1610612745 },
-          team2: { abbr: "SAS", name: "San Antonio Spurs", seed: 7, teamId: 1610612759 },
-          wins1: 0, wins2: 0, status: "scheduled", startDate: "2026-04-19"
-        },
-        {
-          id: "w1s3", round: 1, conference: "west", seriesNumber: 3,
-          team1: { abbr: "DEN", name: "Denver Nuggets", seed: 3, teamId: 1610612743 },
-          team2: { abbr: "GSW", name: "Golden State Warriors", seed: 6, teamId: 1610612744 },
-          wins1: 0, wins2: 0, status: "scheduled", startDate: "2026-04-20"
-        },
-        {
-          id: "w1s4", round: 1, conference: "west", seriesNumber: 4,
-          team1: { abbr: "LAL", name: "Los Angeles Lakers", seed: 4, teamId: 1610612747 },
-          team2: { abbr: "MEM", name: "Memphis Grizzlies", seed: 5, teamId: 1610612763 },
-          wins1: 0, wins2: 0, status: "scheduled", startDate: "2026-04-20"
-        }
+        { id: "w1-1", round: 1, conference: "west", seriesNumber: 1, team1: { abbr: "OKC", name: "Oklahoma City Thunder", seed: 1 }, team2: { abbr: "TBD", name: "TBD", seed: 8 }, wins1: 0, wins2: 0, status: "scheduled" },
+        { id: "w1-2", round: 1, conference: "west", seriesNumber: 2, team1: { abbr: "SAS", name: "San Antonio Spurs", seed: 2 }, team2: { abbr: "TBD", name: "TBD", seed: 7 }, wins1: 0, wins2: 0, status: "scheduled" },
+        { id: "w1-3", round: 1, conference: "west", seriesNumber: 3, team1: { abbr: "DEN", name: "Denver Nuggets", seed: 3 }, team2: { abbr: "TBD", name: "TBD", seed: 6 }, wins1: 0, wins2: 0, status: "scheduled" },
+        { id: "w1-4", round: 1, conference: "west", seriesNumber: 4, team1: { abbr: "LAL", name: "Los Angeles Lakers", seed: 4 }, team2: { abbr: "TBD", name: "TBD", seed: 5 }, wins1: 0, wins2: 0, status: "scheduled" }
       ]
     },
-    2: { east: [], west: [] },
-    3: { east: [], west: [] },
-    4: { finals: [] }
+    2: {
+      east: [
+        { id: "e2-1", round: 2, conference: "east", seriesNumber: 1, team1: { abbr: "TBD", name: "TBD", seed: 1 }, team2: { abbr: "TBD", name: "TBD", seed: 4 }, wins1: 0, wins2: 0, status: "scheduled" },
+        { id: "e2-2", round: 2, conference: "east", seriesNumber: 2, team1: { abbr: "TBD", name: "TBD", seed: 2 }, team2: { abbr: "TBD", name: "TBD", seed: 3 }, wins1: 0, wins2: 0, status: "scheduled" }
+      ],
+      west: [
+        { id: "w2-1", round: 2, conference: "west", seriesNumber: 1, team1: { abbr: "TBD", name: "TBD", seed: 1 }, team2: { abbr: "TBD", name: "TBD", seed: 4 }, wins1: 0, wins2: 0, status: "scheduled" },
+        { id: "w2-2", round: 2, conference: "west", seriesNumber: 2, team1: { abbr: "TBD", name: "TBD", seed: 2 }, team2: { abbr: "TBD", name: "TBD", seed: 3 }, wins1: 0, wins2: 0, status: "scheduled" }
+      ]
+    },
+    3: {
+      east: [{ id: "e3-1", round: 3, conference: "east", seriesNumber: 1, team1: { abbr: "TBD", name: "TBD", seed: 1 }, team2: { abbr: "TBD", name: "TBD", seed: 2 }, wins1: 0, wins2: 0, status: "scheduled" }],
+      west: [{ id: "w3-1", round: 3, conference: "west", seriesNumber: 1, team1: { abbr: "TBD", name: "TBD", seed: 1 }, team2: { abbr: "TBD", name: "TBD", seed: 2 }, wins1: 0, wins2: 0, status: "scheduled" }]
+    },
+    4: { finals: [{ id: "f4-1", round: 4, conference: "finals", seriesNumber: 1, team1: { abbr: "TBD", name: "TBD East", seed: 1 }, team2: { abbr: "TBD", name: "TBD West", seed: 1 }, wins1: 0, wins2: 0, status: "scheduled" }] }
   }
 };
 
-// Parsuje odpowiedź NBA API do naszej wewnętrznej struktury
-function parseNBASeries(apiSeries) {
-  if (!apiSeries) return null;
-  try {
-    const wins1 = parseInt(apiSeries.topRow?.wins ?? 0);
-    const wins2 = parseInt(apiSeries.bottomRow?.wins ?? 0);
-    const isComplete = wins1 === 4 || wins2 === 4;
+// Agreguje mecze w serie playoffowe
+function aggregateSeries(events) {
+  const seriesMap = new Map();
+  
+  for (const event of events) {
+    if (!event?.competitions?.[0]) continue;
+    
+    const comp = event.competitions[0];
+    const teams = comp.competitors || [];
+    if (teams.length < 2) continue;
+
+    const teamIds = teams.map(t => t.team?.id).filter(Boolean).sort().join("-");
+    if (!seriesMap.has(teamIds)) {
+      seriesMap.set(teamIds, { events: [], teams, seriesId: null });
+    }
+    seriesMap.get(teamIds).events.push(event);
+  }
+
+  const result = [];
+  for (const [key, data] of seriesMap) {
+    const events = data.events.sort((a, b) => new Date(a.date) - new Date(b.date));
+    const wins = {};
+    
+    for (const event of events) {
+      const comp = event.competitions[0];
+      for (const team of comp.competitors) {
+        if (event.status?.type?.completed && team.winner) {
+          const abbr = ESPN_TEAM_MAP[team.team?.id] || team.team?.abbreviation;
+          wins[abbr] = (wins[abbr] || 0) + 1;
+        }
+      }
+    }
+
+    const teams = data.teams;
+    const t1Abbr = ESPN_TEAM_MAP[teams[0].team?.id] || teams[0].team?.abbreviation || "TBD";
+    const t2Abbr = ESPN_TEAM_MAP[teams[1].team?.id] || teams[1].team?.abbreviation || "TBD";
+    
+    const wins1 = wins[t1Abbr] || 0;
+    const wins2 = wins[t2Abbr] || 0;
+    const isComplete = wins1 >= 4 || wins2 >= 4;
     const isInProgress = (wins1 > 0 || wins2 > 0) && !isComplete;
 
-    return {
+    result.push({
       wins1,
       wins2,
       status: isComplete ? "completed" : isInProgress ? "inProgress" : "scheduled",
       team1: {
-        abbr: apiSeries.topRow?.teamAbbr,
-        name: apiSeries.topRow?.teamCity + " " + apiSeries.topRow?.teamName,
-        seed: parseInt(apiSeries.topRow?.seed ?? 0),
-        teamId: parseInt(apiSeries.topRow?.teamId ?? 0)
+        abbr: t1Abbr,
+        name: TEAM_NAMES[t1Abbr] || teams[0].team?.displayName || "TBD",
+        seed: teams[0].seed || 0
       },
       team2: {
-        abbr: apiSeries.bottomRow?.teamAbbr,
-        name: apiSeries.bottomRow?.teamCity + " " + apiSeries.bottomRow?.teamName,
-        seed: parseInt(apiSeries.bottomRow?.seed ?? 0),
-        teamId: parseInt(apiSeries.bottomRow?.teamId ?? 0)
+        abbr: t2Abbr,
+        name: TEAM_NAMES[t2Abbr] || teams[1].team?.displayName || "TBD",
+        seed: teams[1].seed || 0
       }
-    };
-  } catch {
-    return null;
+    });
   }
+
+  return result;
 }
 
 export default async function handler(req, context) {
-  // Obsługa preflight CORS
   if (req.method === "OPTIONS") {
     return new Response(null, {
       status: 204,
@@ -120,7 +141,6 @@ export default async function handler(req, context) {
   };
 
   try {
-    // Sprawdź cache w Netlify Blobs
     let store;
     try {
       store = getStore("bracket-cache");
@@ -128,81 +148,75 @@ export default async function handler(req, context) {
       if (cached) {
         const age = Date.now() - new Date(cached.cachedAt).getTime();
         if (age < 5 * 60 * 1000) {
-          // Cache jest świeży (< 5 minut)
           return new Response(JSON.stringify(cached.data), { status: 200, headers });
         }
       }
     } catch (blobErr) {
-      console.warn("Błąd odczytu cache Blobs:", blobErr.message);
+      console.warn("Błąd odczytu cache:", blobErr.message);
     }
 
-    // Pobierz z NBA API
     let bracketData = null;
     let apiError = null;
 
     try {
-      console.log("Próba pobrania danych z NBA API...");
-      const nbaRes = await fetch(
-        "https://cdn.nba.com/static/json/liveData/playoff/playoffBracket_2025.json",
-        {
-          headers: {
-            "Accept": "application/json",
-            "Origin": "https://www.nba.com",
-            "Referer": "https://www.nba.com/",
-          },
-          signal: AbortSignal.timeout(15000) // Zwiększony timeout do 15 sekund
-        }
+      console.log("Pobieram dane z ESPN API...");
+      const espnRes = await fetch(
+        "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20250401-20250630",
+        { signal: AbortSignal.timeout(10000) }
       );
 
-      if (!nbaRes.ok) {
-        console.error(`NBA API błąd HTTP: ${nbaRes.status}`);
-        throw new Error(`NBA API odpowiedział: ${nbaRes.status}`);
+      if (!espnRes.ok) {
+        throw new Error(`ESPN API: ${espnRes.status}`);
       }
-      const nbaData = await nbaRes.json();
-      console.log("NBA API odpowiedź sukcesem, dane:", nbaData);
 
-      // Mapuj dane NBA na naszą strukturę
-      const playoffBracket = nbaData?.bracket?.playoffBracket ?? nbaData?.playoffBracket;
-      if (playoffBracket) {
+      const espnData = await espnRes.json();
+      const playoffEvents = (espnData.events || []).filter(e => 
+        e.season?.type === 3 || (e.name && e.name.includes("at"))
+      );
+
+      if (playoffEvents.length > 0) {
+        const series = aggregateSeries(playoffEvents);
+        const eastTeams = ["ATL", "BOS", "BKN", "CHA", "CHI", "CLE", "DET", "IND", "MIA", "MIL", "NYK", "ORL", "PHI", "TOR", "WAS"];
+        const westTeams = ["DAL", "DEN", "GSW", "HOU", "LAC", "LAL", "MEM", "MIN", "NOP", "OKC", "PHX", "POR", "SAC", "SAS", "UTA"];
+        
         bracketData = {
           season: "2025-26",
           lastUpdated: new Date().toISOString(),
-          source: "nba-api",
-          rounds: FALLBACK_BRACKET.rounds
+          source: "espn-api",
+          rounds: JSON.parse(JSON.stringify(FALLBACK_BRACKET.rounds))
         };
 
-        // Mapuj serie z API
-        const series = playoffBracket?.series ?? playoffBracket?.playoffSeries ?? [];
-        series.forEach(s => {
-          const parsed = parseNBASeries(s);
-          if (!parsed) return;
+        const eastSeries = series.filter(s => eastTeams.includes(s.team1.abbr) || eastTeams.includes(s.team2.abbr));
+        const westSeries = series.filter(s => westTeams.includes(s.team1.abbr) || westTeams.includes(s.team2.abbr));
 
-          const round = parseInt(s.roundNum ?? s.roundNumber ?? 1);
-          const conference = (s.confName ?? "").toLowerCase().includes("east") ? "east" : "west";
-          const idx = parseInt(s.seriesNum ?? 0);
-
-          if (round === 4) {
-            if (!bracketData.rounds[4].finals[0]) {
-              bracketData.rounds[4].finals = [{
-                id: "finals", round: 4, conference: "finals",
-                ...parsed
-              }];
-            }
-          } else if (bracketData.rounds[round]?.[conference]?.[idx]) {
-            Object.assign(bracketData.rounds[round][conference][idx], parsed);
+        eastSeries.slice(0, 4).forEach((s, i) => {
+          if (bracketData.rounds[1].east[i]) {
+            Object.assign(bracketData.rounds[1].east[i], s);
+            bracketData.rounds[1].east[i].id = `e1-${i + 1}`;
           }
         });
+        westSeries.slice(0, 4).forEach((s, i) => {
+          if (bracketData.rounds[1].west[i]) {
+            Object.assign(bracketData.rounds[1].west[i], s);
+            bracketData.rounds[1].west[i].id = `w1-${i + 1}`;
+          }
+        });
+
+        console.log(`ESPN: znaleziono ${series.length} serii`);
       }
     } catch (err) {
       apiError = err.message;
-      console.error("Błąd pobierania NBA API:", err.message);
+      console.error("Błąd ESPN API:", err.message);
     }
 
-    // Używamy tylko hardkodowane dane - pomijamy próby połączenia z NBA API
-    // NBA API blokuje dostęp z Netlify, więc używamy fallback
-    bracketData = { ...FALLBACK_BRACKET, source: "fallback", apiError: "NBA API Access Denied - używamy dane lokalne" };
+    if (!bracketData) {
+      bracketData = { 
+        ...FALLBACK_BRACKET, 
+        source: "fallback", 
+        apiError: apiError || "Brak danych z API" 
+      };
+    }
 
-    // Zapisz do cache
     if (store) {
       try {
         await store.setJSON("bracket", { data: bracketData, cachedAt: new Date().toISOString() });

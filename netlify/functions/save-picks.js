@@ -3,8 +3,7 @@
 // Blokuje edycję gdy seria już się rozpoczęła
 
 import { getStore } from "@netlify/blobs";
-
-const VALID_PLAYERS = ["kamil", "kuba"];
+import { VALID_PLAYERS } from "./_shared/config.js";
 const VALID_SCORES = ["4:0", "4:1", "4:2", "4:3"];
 
 export default async function handler(req, context) {

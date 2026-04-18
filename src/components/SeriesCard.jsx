@@ -7,16 +7,19 @@ const STATUS_LABELS = {
   scheduled: 'Zaplanowana',
   inProgress: 'W toku',
   completed: 'Zakończona',
+  tbd: 'Do ustalenia (Play-In)',
 }
 
 const STATUS_COLORS = {
   scheduled: 'text-gray-500',
   inProgress: 'text-blue-400',
   completed: 'text-gray-400',
+  tbd: 'text-yellow-500',
 }
 
 // Oblicza opis serii
 function getSeriesDescription(series) {
+  if (series.status === 'tbd') return 'Zwycięzca Play-In do ustalenia'
   if (series.status === 'scheduled') return 'Seria nierozpoczęta'
   if (series.status === 'completed') {
     const winner = series.wins1 === 4 ? series.team1 : series.team2
