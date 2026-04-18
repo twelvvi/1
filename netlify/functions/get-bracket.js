@@ -207,12 +207,12 @@ function parseScoreboardEvent(event) {
 function buildSeries(games) {
   // Grupuj mecze po parze drużyn (niezależnie od kolejności)
   const seriesMap = new Map();
-  
+
   for (const game of games) {
     if (game.isPlayIn) continue; // Pomiń play-iny przy budowaniu serii playoff
-    
+
     const key = [game.team1.abbr, game.team2.abbr].sort().join("-");
-    
+
     if (!seriesMap.has(key)) {
       seriesMap.set(key, {
         team1: game.team1,
@@ -224,26 +224,30 @@ function buildSeries(games) {
         wins2: 0
       });
     }
-    
+
+    // Pobierz referencję, zmodyfikuj, i zapisz z powrotem
     const series = seriesMap.get(key);
     series.games.push(game);
-    
+
     // Zliczaj zwycięstwa
     if (game.completed) {
       if (game.team1.winner) series.wins1++;
       else if (game.team2.winner) series.wins2++;
     }
+
+    // KRYTYCZNE: Zaktualizuj wartość w mapie po modyfikacji
+    seriesMap.set(key, series);
   }
-  
+
   // Konwertuj na tablicę i sortuj
   return Array.from(seriesMap.values()).map(series => {
     // Sortuj mecze po dacie
     series.games.sort((a, b) => new Date(a.date) - new Date(b.date));
-    
+
     // Określ status serii
     const isComplete = series.wins1 >= 4 || series.wins2 >= 4;
     const isInProgress = (series.wins1 > 0 || series.wins2 > 0) && !isComplete;
-    
+
     return {
       ...series,
       status: isComplete ? "completed" : isInProgress ? "inProgress" : "scheduled",
@@ -336,32 +340,69 @@ export default async function handler(req, context) {
 
       // Znajdź mecze Round 1 (nie play-in) i uzupełnij fallback
       const round1Games = allGames.filter(g => g.round === 1 && !g.isPlayIn);
+      console.log(`Round 1 games found: ${round1Games.length}`);
       
       // Grupuj po konferencji
       const eastGames = round1Games.filter(g => g.conference === "east" || EAST_TEAMS.includes(g.team1.abbr));
       const westGames = round1Games.filter(g => g.conference === "west" || WEST_TEAMS.includes(g.team1.abbr));
       
-      // Uzupełnij East Round 1 - sortuj po seedzie team1
-      eastGames.sort((a, b) => a.team1.seed - b.team1.seed);
-      for (let i = 0; i < Math.min(eastGames.length, 4); i++) {
-        const game = eastGames[i];
-        if (bracketData.rounds[1].east[i]) {
-          bracketData.rounds[1].east[i].team1 = game.team1;
-          bracketData.rounds[1].east[i].team2 = game.team2;
-          bracketData.rounds[1].east[i].status = game.status;
-        }
-      }
+      console.log(`East Round 1: ${eastGames.length} games`);
+      console.log(`West Round 1: ${westGames.length} games`);
       
-      // Uzupełnij West Round 1 - sortuj po seedzie team1
-      westGames.sort((a, b) => a.team1.seed - b.team1.seed);
-      for (let i = 0; i < Math.min(westGames.length, 4); i++) {
-        const game = westGames[i];
-        if (bracketData.rounds[1].west[i]) {
-          bracketData.rounds[1].west[i].team1 = game.team1;
-          bracketData.rounds[1].west[i].team2 = game.team2;
-          bracketData.rounds[1].west[i].status = game.status;
+      // Funkcja dopasowująca mecze do slotów na podstawie seedów
+      const populateRound1 = (games, slots, confName) => {
+        // Sortuj po seedzie (niższy seed = wyższa pozycja)
+        games.sort((a, b) => a.team1.seed - b.team1.seed);
+        
+        for (const game of games) {
+          // Znajdź slot który pasuje do seedów tego meczu
+          // Round 1: 1vs8, 2vs7, 3vs6, 4vs5
+          const seedPair = [game.team1.seed, game.team2.seed].sort((a, b) => a - b);
+          
+          // Znajdź slot który ma pasujące seedy lub jest pusty (TBD)
+          let targetSlot = null;
+          let slotIndex = -1;
+          
+          for (let i = 0; i < slots.length; i++) {
+            const slot = slots[i];
+            const slotSeeds = [slot.team1.seed, slot.team2.seed].sort((a, b) => a - b);
+            
+            // Sprawdź czy to pasujący slot (seed lub TBD)
+            if (slot.team1.abbr === "TBD" || slot.team2.abbr === "TBD") {
+              // Slot jest pusty - sprawdź czy seed1 pasuje
+              if (slot.team1.seed === game.team1.seed || slot.team1.seed === game.team2.seed) {
+                targetSlot = slot;
+                slotIndex = i;
+                break;
+              }
+            } else if (seedPair[0] === slotSeeds[0] && seedPair[1] === slotSeeds[1]) {
+              // Pasujące seed pair
+              targetSlot = slot;
+              slotIndex = i;
+              break;
+            }
+          }
+          
+          if (targetSlot) {
+            // Upewnij się że team1 ma niższy seed
+            if (game.team1.seed < game.team2.seed) {
+              targetSlot.team1 = game.team1;
+              targetSlot.team2 = game.team2;
+            } else {
+              targetSlot.team1 = game.team2;
+              targetSlot.team2 = game.team1;
+            }
+            targetSlot.status = game.status;
+            console.log(`[${confName}] Matched: ${targetSlot.team1.abbr}(${targetSlot.team1.seed}) vs ${targetSlot.team2.abbr}(${targetSlot.team2.seed}) to slot ${slotIndex}`);
+          } else {
+            console.log(`[${confName}] Could not match: ${game.team1.abbr}(${game.team1.seed}) vs ${game.team2.abbr}(${game.team2.seed})`);
+          }
         }
-      }
+      };
+      
+      // Uzupełnij Round 1
+      populateRound1(eastGames, bracketData.rounds[1].east, "East");
+      populateRound1(westGames, bracketData.rounds[1].west, "West");
 
       // Uzupełnij wyniki serii dla Round 1
       for (const s of series.filter(s => s.round === 1)) {
