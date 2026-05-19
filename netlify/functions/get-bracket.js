@@ -113,6 +113,12 @@ function parseScoreboardEvent(event) {
   const t1Abbr = ESPN_TEAM_MAP[team1.team?.id] || team1.team?.abbreviation || "TBD";
   const t2Abbr = ESPN_TEAM_MAP[team2.team?.id] || team2.team?.abbreviation || "TBD";
 
+  // Determine conference flags
+  const t1IsWest = WEST_TEAMS.includes(t1Abbr);
+  const t1IsEast = EAST_TEAMS.includes(t1Abbr);
+  const t2IsWest = WEST_TEAMS.includes(t2Abbr);
+  const t2IsEast = EAST_TEAMS.includes(t2Abbr);
+
   // Określ konferencję
   let conference = "east";
   if (t1IsWest && t2IsWest) {
