@@ -457,7 +457,7 @@ export default async function handler(req, context) {
           const shouldSwap = game.team1.seed > game.team2.seed;
 
           bracketData.rounds[1].west[i].team1 = shouldSwap ? game.team2 : game.team1;
-          bracketData.rounds[1].west[i].team2 = shouldSwap ? game.game1 : game.team2;
+          bracketData.rounds[1].west[i].team2 = shouldSwap ? game.team1 : game.team2;
           bracketData.rounds[1].west[i].status = game.status;
           console.log(`[West] Matched slot ${i}: ${bracketData.rounds[1].west[i].team1.abbr}(${bracketData.rounds[1].west[i].team1.seed}) vs ${bracketData.rounds[1].west[i].team2.abbr}(${bracketData.rounds[1].west[i].team2.seed})`);
         } else {
