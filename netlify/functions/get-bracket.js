@@ -66,7 +66,7 @@ const FALLBACK_BRACKET = {
     3: {
       east: [{ id: "e3-1", round: 3, conference: "east", seriesNumber: 1, team1: { abbr: "CLE", name: "Cleveland Cavaliers", seed: 4 }, team2: { abbr: "NYK", name: "New York Knicks", seed: 3 }, wins1: 0, wins2: 0, status: "scheduled" }],
       west: [{ id: "w3-1", round: 3, conference: "west", seriesNumber: 1, team1: { abbr: "OKC", name: "Oklahoma City Thunder", seed: 1 }, team2: { abbr: "SAS", name: "San Antonio Spurs", seed: 2 }, wins1: 1, wins2: 0, status: "inProgress" }],
-    }
+    },
     4: { finals: [{ id: "f4-1", round: 4, conference: "finals", seriesNumber: 1, team1: { abbr: "TBD", name: "TBD East", seed: 1 }, team2: { abbr: "TBD", name: "TBD West", seed: 1 }, wins1: 0, wins2: 0, status: "scheduled" }] }
   }
 };
@@ -112,6 +112,12 @@ function parseScoreboardEvent(event) {
   
   const t1Abbr = ESPN_TEAM_MAP[team1.team?.id] || team1.team?.abbreviation || "TBD";
   const t2Abbr = ESPN_TEAM_MAP[team2.team?.id] || team2.team?.abbreviation || "TBD";
+
+  // Determine conference flags
+  const t1IsWest = WEST_TEAMS.includes(t1Abbr);
+  const t1IsEast = EAST_TEAMS.includes(t1Abbr);
+  const t2IsWest = WEST_TEAMS.includes(t2Abbr);
+  const t2IsEast = EAST_TEAMS.includes(t2Abbr);
 
   // Określ konferencję
   let conference = "east";
