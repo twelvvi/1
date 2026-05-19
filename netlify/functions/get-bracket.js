@@ -55,7 +55,7 @@ const FALLBACK_BRACKET = {
     },
     2: {
       east: [
-        { id: "e2-1", round: 2, conference: "east", seriesNumber: 1, team1: { abbr: "DET", name: "Detroit Pistons", seed: 1 }, team2: { abbr: "CLE", name: "Cleveland Cavaliers", seed: 4 }, wins1: 2, wins2: 4, status: "completed" },
+        { id: "e2-1", round: 2, conference: "east", seriesNumber: 1, team1: { abbr: "DET", name: "Detroit Pistons", seed: 1 }, team2: { abbr: "CLE", name: "Cleveland Cavaliers", seed: 4 }, wins1: 3, wins2: 4, status: "completed" },
         { id: "e2-2", round: 2, conference: "east", seriesNumber: 2, team1: { abbr: "PHI", name: "Philadelphia 76ers", seed: 7 }, team2: { abbr: "NYK", name: "New York Knicks", seed: 3 }, wins1: 1, wins2: 4, status: "completed" },
       ],
       west: [
@@ -315,8 +315,8 @@ export default async function handler(req, context) {
       console.warn("Cache error:", blobErr.message);
     }
 
-    // ✅ WŁĄCZONE: ESPN live fetching od startu półfinałów konferencji
-    const playoffStart = new Date("2026-05-05");
+    // ✅ WŁĄCZONE: ESPN live fetching od startu finałów konferencji
+    const playoffStart = new Date("2026-05-19");
     const today = new Date();
     const endDate = addDays(today, 1);
 
